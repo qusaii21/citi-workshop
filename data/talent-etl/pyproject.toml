@@ -1,0 +1,9 @@
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+    "integration: needs the local PostgreSQL and LocalStack services (skipped when unreachable)",
+]
+
+[tool.coverage.run]
+source = ["talent_etl"]

@@ -19,7 +19,12 @@ resource "aws_rds_cluster" "this" {
   skip_final_snapshot             = true
   storage_encrypted               = true
   db_subnet_group_name            = element(aws_db_subnet_group.this.*.name, count.index)
-  vpc_security_group_ids          = data.aws_security_groups.this.ids
+  # Also join the EKS cluster security group (which allows all traffic between its members) so
+  # pods on the EKS nodes can reach the database without adding security group rules.
+  vpc_security_group_ids = concat(
+    data.aws_security_groups.this.ids,
+    [for c in aws_eks_cluster.this : c.vpc_config[0].cluster_security_group_id],
+  )
   enabled_cloudwatch_logs_exports = ["postgresql"]
 
   serverlessv2_scaling_configuration {
@@ -28,6 +33,11 @@ resource "aws_rds_cluster" "this" {
   }
 
   tags = local.app_tags
+
+  # Leave the monitoring tag that is applied outside Terraform (AWS managed monitoring) in place.
+  lifecycle {
+    ignore_changes = [tags["ams:rt:ams-monitoring-policy"], tags_all["ams:rt:ams-monitoring-policy"]]
+  }
 }
 
 resource "aws_rds_cluster_instance" "this" {
@@ -39,4 +49,8 @@ resource "aws_rds_cluster_instance" "this" {
   instance_class             = "db.serverless"
   auto_minor_version_upgrade = true
   tags                       = local.app_tags
+
+  lifecycle {
+    ignore_changes = [tags["ams:rt:ams-monitoring-policy"], tags_all["ams:rt:ams-monitoring-policy"]]
+  }
 }

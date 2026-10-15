@@ -1,0 +1,10 @@
+pandas==3.0.6
+# pyarrow 26 needs NumPy 2; pinned because images that ship NumPy 1 would otherwise keep it
+numpy>=2.4.6,<3  # range: 2.4.6 on the Python 3.11 images, 2.5.x on the local Python 3.13 venv
+pyarrow==26.0.0
+boto3==1.43.113
+psycopg[binary]==3.3.6
+# The EKS image (jupyter/all-spark-notebook) ships numexpr 2.8 / bottleneck 1.3 built for NumPy 1.x;
+# pandas imports them as optional accelerators, so NumPy-2-compatible versions are pinned here.
+numexpr==2.14.2
+bottleneck==1.6.0

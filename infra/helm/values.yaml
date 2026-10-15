@@ -3,6 +3,12 @@ pythonJob:
   name: "python-job"
   scriptContent: ""
   requirementsContent: ""
+  # Optional: base64 zip of the job's Python packages (unpacked onto PYTHONPATH in the pod)
+  packageContent: ""
+  # Optional: environment variables for the job, delivered through a Kubernetes Secret
+  env: {}
+  # Optional: Kubernetes service account for the job, e.g. one linked to an IAM role by EKS Pod Identity
+  serviceAccount: ""
   backoffLimit: 4
   ttlSecondsAfterFinished: 100
   restartPolicy: Never

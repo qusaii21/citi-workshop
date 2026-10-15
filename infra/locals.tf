@@ -1,5 +1,5 @@
 locals {
-  app_id = try(trimspace(var.aws_app_code), "") != "" ? trimspace(var.aws_app_code) : random_id.this.hex
+  app_id   = try(trimspace(var.aws_app_code), "") != "" ? trimspace(var.aws_app_code) : random_id.this.hex
   app_tags = { participant = local.app_id, event = random_id.this.hex }
   public_route_table_ids = [
     for rt in data.aws_route_table.this :
@@ -84,8 +84,9 @@ locals {
       reqs = "pom.xml"
     }
   }
-  job_names      = merge(local.data_names_python, local.data_names_java)
-  helm_hash      = sha256(join("", [for f in fileset("helm", "**/*.yaml") : filesha256(format("%s/helm/%s", path.module, f))]))
+  job_names = merge(local.data_names_python, local.data_names_java)
+  # JupyterHub's values file only: changes to the python job chart must not reinstall JupyterHub.
+  helm_hash      = filesha256(format("%s/helm/config.yaml", path.module))
   function_names = merge(local.backend_names_java, local.backend_names_nodejs, local.backend_names_python)
   function_origins = [
     for name, func in local.function_names : {
@@ -111,6 +112,30 @@ locals {
     MONGO_NAME    = data.aws_caller_identity.this.id == "000000000000" ? "mongo" : try(one(aws_docdb_cluster.this.*.database_name), "")
     MONGO_USER    = data.aws_caller_identity.this.id == "000000000000" ? "" : try(one(aws_docdb_cluster.this.*.master_username), "")
     MONGO_PASS    = data.aws_caller_identity.this.id == "000000000000" ? "" : try(one(aws_docdb_cluster.this.*.master_password), "")
+    # Talent data lake for the dashboard API (the local pipeline's default bucket under LocalStack).
+    TALENT_LAKE_BUCKET = data.aws_caller_identity.this.id == "000000000000" ? "acme-talent-lake" : local.talent_bucket_names.lake
+  }
+  # Names of the talent pipeline's buckets (also passed to the dashboard Lambda, see env_vars).
+  talent_bucket_names = {
+    source = format("%s-%s-talent-source-%s", var.aws_project, local.app_id, local.app_id)
+    lake   = format("%s-%s-talent-lake-%s", var.aws_project, local.app_id, local.app_id)
+  }
+  # Environment for data jobs on EKS: the same database settings the Lambdas get, plus the
+  # data lake buckets and the pipeline entry point (job.py runs without arguments in the pod).
+  data_job_env = {
+    IS_LOCAL           = local.env_vars.IS_LOCAL
+    POSTGRES_HOST      = local.env_vars.POSTGRES_HOST
+    POSTGRES_PORT      = tostring(local.env_vars.POSTGRES_PORT)
+    POSTGRES_NAME      = local.env_vars.POSTGRES_NAME
+    POSTGRES_USER      = local.env_vars.POSTGRES_USER
+    POSTGRES_PASS      = local.env_vars.POSTGRES_PASS
+    AWS_REGION         = local.env_vars.APP_REGION
+    AWS_DEFAULT_REGION = local.env_vars.APP_REGION
+    SOURCE_BUCKET      = try(one(aws_s3_bucket.talent_source.*.bucket), "")
+    LAKE_BUCKET        = try(one(aws_s3_bucket.talent_lake.*.bucket), "")
+    SEED_ZIP_URI       = try("s3://${one(aws_s3_object.talent_sample.*.bucket)}/${one(aws_s3_object.talent_sample.*.key)}", "")
+    PIPELINE_STEP      = "all"
+    SEED_IF_MISSING    = "true"
   }
   lambda_role_arn = format(
     "arn:%s:iam::%s:role/%s-lambda-%s-%s",

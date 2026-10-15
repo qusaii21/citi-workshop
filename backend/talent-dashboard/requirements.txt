@@ -1,0 +1,1 @@
+# No extra packages: the function only needs boto3, which the AWS Lambda Python runtime provides.

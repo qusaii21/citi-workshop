@@ -11,6 +11,33 @@ data:
     {{ .Values.pythonJob.scriptContent | nindent 4 }}
   requirements.txt: |
     {{ .Values.pythonJob.requirementsContent | nindent 4 }}
+  {{- if .Values.pythonJob.packageContent }}
+  package.zip.b64: |
+    {{ .Values.pythonJob.packageContent | nindent 4 }}
+  {{- end }}
+---
+{{- end }}
+{{- if .Values.pythonJob.env }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "name" . }}-{{ .Values.pythonJob.name }}-env
+  labels:
+    {{- include "labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  {{- range $key, $value := .Values.pythonJob.env }}
+  {{ $key }}: {{ $value | toString | quote }}
+  {{- end }}
+---
+{{- end }}
+{{- if .Values.pythonJob.serviceAccount }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.pythonJob.serviceAccount }}
+  labels:
+    {{- include "labels" . | nindent 4 }}
 ---
 {{- end }}
 apiVersion: batch/v1
@@ -25,6 +52,9 @@ spec:
       labels:
         {{- include "labels" . | nindent 8 }}
     spec:
+      {{- if .Values.pythonJob.serviceAccount }}
+      serviceAccountName: {{ .Values.pythonJob.serviceAccount }}
+      {{- end }}
       containers:
         - name: {{ include "name" . }}-{{ .Values.pythonJob.name }}
           image: {{ .Values.pythonJob.image.repository }}:{{ .Values.pythonJob.image.tag }}
@@ -36,7 +66,17 @@ spec:
                 echo "Installing pipeline dependencies from requirements.txt..."
                 pip install --no-cache-dir -r /app/requirements.txt
               fi
+              if [ -f /app/package.zip.b64 ]; then
+                echo "Unpacking the job's Python package..."
+                base64 -d /app/package.zip.b64 > /tmp/package.zip
+                export PYTHONPATH="/tmp/package.zip${PYTHONPATH:+:$PYTHONPATH}"
+              fi
               python /app/job.py
+          {{- if .Values.pythonJob.env }}
+          envFrom:
+            - secretRef:
+                name: {{ include "name" . }}-{{ .Values.pythonJob.name }}-env
+          {{- end }}
           {{- if .Values.pythonJob.scriptContent }}
           volumeMounts:
             - name: script

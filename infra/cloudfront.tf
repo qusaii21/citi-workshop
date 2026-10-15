@@ -46,6 +46,15 @@ resource "aws_cloudfront_distribution" "this" {
     response_page_path    = "/index.html"
   }
 
+  # The website bucket is private (origin access control), so S3 answers 403, not 404, for a path that is
+  # not a file, such as the app route /presentation. Serve the app for those too, so its routes work.
+  custom_error_response {
+    error_code            = 403
+    error_caching_min_ttl = 300
+    response_code         = 200
+    response_page_path    = "/index.html"
+  }
+
   # logging_config {
   #   include_cookies = false
   #   bucket          = var.aws_bucket

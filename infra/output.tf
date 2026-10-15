@@ -45,3 +45,13 @@ output "jupyter_url" {
   description = "The URL of the JupyterHub instance"
   value       = data.aws_caller_identity.this.id == "000000000000" ? "http://localhost:8888" : try(one(aws_eks_cluster.this.*.endpoint), null)
 }
+
+output "talent_source_bucket" {
+  description = "Source bucket of the talent data pipeline (learning activity + sample zip)"
+  value       = try(one(aws_s3_bucket.talent_source.*.bucket), null)
+}
+
+output "talent_lake_bucket" {
+  description = "Data lake bucket of the talent data pipeline (bronze/silver/gold)"
+  value       = try(one(aws_s3_bucket.talent_lake.*.bucket), null)
+}
